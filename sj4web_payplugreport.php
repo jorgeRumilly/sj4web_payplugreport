@@ -110,6 +110,7 @@ class Sj4web_Payplugreport extends Module
                 if (strtolower($order->module) !== 'payplug') {
                     return;
                 }
+
                 // On vérifie si le rapport existe déjà pour cette commande
                 $row = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'order_payplug_reports WHERE id_order = ' . $order->id);
                 if ($row) {
@@ -233,9 +234,21 @@ class Sj4web_Payplugreport extends Module
                     return;
                 }
 
+                // On vérifie si on a déjà la commission pour cette commgande
+                $row_fee = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'order_fees WHERE id_order = ' . $id_order);
+                if( $row_fee && (float)$row_fee['fee'] !== 0.00) {
+                    return; // Commission déjà récupérée
+                }
                 // On vérifie si le rapport existe et s'il a été traité
                 $row = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'order_payplug_reports WHERE id_order = ' . $id_order);
-                if( !$row) {
+                if(!$row || $row['report_treated']) {
+                    if($row['report_treated']) {
+                        $res = Db::getInstance()->execute('DELETE FROM ' . _DB_PREFIX_ . 'order_payplug_reports WHERE id_order = ' . $id_order);
+                        if (!$res) {
+                            PrestaShopLogger::addLog('Payplug Report Error: Unable to delete treated report for order ID ' . $id_order, 3, null, 'Order', $id_order, true);
+                            return;
+                        }
+                    }
                     // Là faut aller chercher le rapport sinon c la merde !
                     $this->createPayplugReport($order);
                     $row = Db::getInstance()->getRow('SELECT * FROM ' . _DB_PREFIX_ . 'order_payplug_reports WHERE id_order = ' . $id_order);
